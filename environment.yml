@@ -1,0 +1,15 @@
+name: eqtlgenldsc
+channels:
+  - bioconda
+  - conda-forge
+  - r
+dependencies:
+    - conda-forge::r-r.utils
+    - conda-forge::r-devtools
+    - conda-forge::r-data.table
+    - conda-forge::r-tidyverse
+    - conda-forge::r-argparse
+    - conda-forge::r-arrow
+    - conda-forge::coreutils
+    - sed=4.8
+prefix: ./EqtlGwasLdsc

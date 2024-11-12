@@ -1,0 +1,5 @@
+tests
+work
+.nextflow*
+submit_eqtl_gwas_ldsc.sh
+.DS_Store
