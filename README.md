@@ -70,11 +70,12 @@ TBA
 
 This pipeline was written by Urmo Võsa and Robert Warmerdam.
 
-LDSC is work of Brendan Bulik-Sullivan and Hilary Finucane
+LDSC is work of Brendan Bulik-Sullivan and Hilary Finucane:
 
 Repo: https://github.com/bulik/ldsc
 
-Citations: 
+Citations:
+
 [Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies. Nature Genetics, 2015](https://www.nature.com/articles/ng.3211)
 
 [Bulik-Sullivan, B., et al. An Atlas of Genetic Correlations across Human Diseases and Traits. Nature Genetics, 2015](https://www.nature.com/articles/ng.3406)
