@@ -18,7 +18,9 @@ parser$add_argument('--i2_thresh', type = 'numeric', default = 40, help = 'Heter
 parser$add_argument('--gene', type = 'character', 
 help = 'Name of gene.')
 parser$add_argument('--remove_eqtl', type = 'character', default = "no",
-help = '"no": no loci are filtered out; "yes": remove +/- window from every eQTL variant.')
+help = '"no": eQTL regions are kept in; "yes": remove eQTL regions from LDSC.')
+parser$add_argument('--remove_hla', type = 'character', default = "no",
+help = '"no": HLA region is kept in; "yes": remove HLA region from LDSC.')
 parser$add_argument('--window', type = 'numeric', default = 1000000,
 help = 'What is the genomic window to remove around each eQTL locus.')
 parser$add_argument('--p_thresh', type = 'numeric', default = 5e-8,
@@ -55,18 +57,27 @@ snplist <- fread(args$snplist, header = FALSE)
 
 message("eQTL file loading...")
 eqtl <- open_dataset(args$eqtl_folder) %>%
-  filter(phenotype %in% args$gene & i_squared <= args$i2_thresh) %>%
-  collect() %>% 
-  as.data.table()
+  filter(phenotype %in% args$gene & i_squared <= args$i2_thresh) %>% collect() %>% as.data.table()
 message("eQTL file loading...done!")
 
+custom_schema <- schema(
+  variant_index = int64(),
+  variant =  string(),
+  bp = int32(),
+  chromosome = int32(),
+  non_eff_allele = string(),
+  eff_allele = string()
+ )
+
 message("SNP reference loading...")
-snpref <- open_dataset(args$snpref)
+snpref <- open_dataset(args$snpref, schema = custom_schema)
+print(snpref)
 snpref <- snpref %>% filter(variant_index %in% eqtl$variant_index) %>% collect() %>% as.data.table()
 message("SNP reference loading...done!")
 
 message("eQTL and ref merging...")
 eqtl <- merge(eqtl, snpref, by = "variant_index")
+#eqtl <- eqtl %>% inner_join(snpref, by = "variant_index") %>% collect() %>% as.data.table()
 message("eQTL and ref merging...done!")
 
 eqtl$p <- ZtoP(eqtl$beta / eqtl$standard_error)
@@ -108,6 +119,14 @@ message(paste(nrow(eqtl), "variants in data after removal of eQTLs."))
 
 eqtl <- eqtl[variant %in% snplist$V1]
 message(paste(nrow(eqtl), "variants in data after filtering on HapMap3 variants."))
+
+if (args$remove_hla == "yes"){
+    message("Removing HLA region!")
+    eqtl$chr <- as.numeric(eqtl$chr)
+
+    eqtl <- eqtl[!(chr == 6 & bp > 25000000 & bp < 34000000)]
+    message(paste(nrow(eqtl), "variants kept after HLA removal."))
+}
 
 eqtl <- data.table(snpid = eqtl$variant,
                    A1 = eqtl$eff_allele,

@@ -7,6 +7,8 @@ process PrepareGwas {
     publishDir "${params.OutputDir}", mode: 'copy', overwrite: true, pattern: "*.log"
     container 'quay.io/urmovosa/pqtlvseqtl:v0.1'
 
+    tag "$phenotype"
+
     input:
         tuple path(gwas), path(gwas_manifest), path(ref), path(snplist), path(ldsc_folder), path(ldsc_ref), val(phenotype)
 
@@ -34,6 +36,9 @@ process MungeGwas {
 
     publishDir "${params.OutputDir}", mode: 'copy', overwrite: true, pattern: "*.log"
     container 'manninglab/ldsc'
+
+    tag "$phenotype"
+
     input:
         tuple path(gwas), val(phenotype), path(ldsc_folder), path(ldsc_ref)
 
@@ -75,8 +80,10 @@ process PrepareEqtl {
     scratch true
     container 'quay.io/urmovosa/pqtlvseqtl:v0.1'
 
+    tag "$gene"
+
     input:
-        tuple path(eqtl), val(gene), path(ref), path(snplist), val(i2), val(analysis_type), val(window), val(pthresh)
+        tuple path(eqtl), val(gene), path(ref), path(snplist), val(i2), val(analysis_type), val(window), val(pthresh), val(remove_hla)
 
     output:
         tuple path("*_InputToMunge.txt.gz"), val(gene)
@@ -95,6 +102,7 @@ process PrepareEqtl {
             --i2_thresh ${i2} \
             --gene ${gene} \
             --remove_eqtl ${analysis_type} \
+            --remove_hla ${remove_hla} \
             --window ${window}\
             --p_thresh ${pthresh}
 
@@ -106,11 +114,14 @@ process PrepareEqtl {
 process Ldsc {
 
     container 'manninglab/ldsc'
+
+    tag "$gene"
+
     input:
         tuple path(eqtl), val(gene), path(gwas_sumstats), path(ldsc_folder), path(ldsc_ref)
 
     output:
-        path("*vsAll.txt")
+        tuple path("*vsAll.txt"), path("*_heritability.txt")
 
     script:
         """
@@ -143,22 +154,14 @@ process Ldsc {
             --w-ld-chr ${ldsc_ref}/eur_w_ld_chr/ \
             --out ${gene}vsAll
         
+        rm ${gene}.sumstats.gz
+
         ##########################################
         # Extract results from the LDSC log file #
         ##########################################
 
-        # Define start of table
-        start_line=\$(grep -n "Summary of Genetic Correlation Results" ${gene}vsAll.log | cut -d: -f1)
-        
-        # Extract table and save to new file
-        awk -v start="\$start_line" '
-        NR > start {
-            # Stop if we encounter a blank line or "Analysis finished at"
-            if (/^[[:space:]]*\$/ || /Analysis finished at/) exit
-            # Only print non-blank lines
-            if (NF) print
-        }
-    ' ${gene}vsAll.log > ${gene}vsAll.txt
+        parse_ldsc_heritability.sh ${gene}vsAll.log > ${gene}_heritability.txt
+        parse_ldsc_rg.sh ${gene}vsAll.log > ${gene}vsAll.txt
 
         """
 }

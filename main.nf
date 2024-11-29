@@ -32,6 +32,7 @@ Mandatory arguments:
 --ldsc_ref                  Folder with LDSC reference files, as shared by LDSC authors.
 --gwas_manifest             GWAS manifest file.
 --remove_eqtl               Whether to remove significant eQTLs from the input eQTL file (yes/no). Default is no.
+--remove_hla                Whether to remove HLA region from the input eQTL file (yes/no). Default is no.
 --window                    Window for removing variants for eQTL peak. Defaults to 1000000.
 --pthresh                   P-value threshold for declaring significant eQTL. Defaults to 5e-8.
 
@@ -54,6 +55,7 @@ params.OutputDir = 'results'
 params.i2_thresh = 100
 params.gene_filter = 'data/help_input.txt'
 params.remove_eqtl = 'no'
+params.remove_hla = 'no'
 params.window = 1000000
 params.pthresh = 5e-8
 
@@ -82,6 +84,7 @@ summary['HapMap3 SNP list file']                    = params.snplist
 summary['I2 threshold']                             = params.i2_thresh
 summary['Gene filter']                              = params.gene_filter
 summary['Remove eQTL']                              = params.remove_eqtl
+summary['Remove HLA']                               = params.remove_hla
 summary['eQTL window']                              = params.window
 summary['P threshold']                              = params.pthresh
 summary['Gene filter']                              = params.gene_filter
@@ -119,6 +122,7 @@ i2_thresh = Channel.value(params.i2_thresh)
 rm_eqtl = Channel.value(params.remove_eqtl)
 window = Channel.value(params.window)
 pthresh = Channel.value(params.pthresh)
+rm_hla = Channel.value(params.remove_hla)
 
 workflow {
         PREPAREGWAS(gwas_input_ch)
@@ -129,9 +133,11 @@ workflow {
 
         prepareeqtl_input_ch = eqtl_ch.combine(gene_id_ch).combine(allele_ch).combine(snplist_ch).combine(i2_thresh)
 
-        PREPAREEQTL(prepareeqtl_input_ch.combine(rm_eqtl).combine(window).combine(pthresh))
+        PREPAREEQTL(prepareeqtl_input_ch.combine(rm_eqtl).combine(window).combine(pthresh).combine(rm_hla))
         LDSC(PREPAREEQTL.out.combine(COLLECTGWAS.out).combine(ldsc_folder_ch).combine(ldsc_ref_ch))
-        LDSC.out.collectFile(name: 'EqtlGwasLdscResults.txt', keepHeader: true, sort: true, storeDir: "${params.OutputDir}")
+        LDSC.out.map { it[0] }.collectFile(name: 'EqtlGwasLdscResults.txt', keepHeader: true, sort: true, storeDir: "${params.OutputDir}")
+        LDSC.out.map { it[1] }.collectFile(name: 'EqtlHeritabilityLdscResults.txt', keepHeader: true, sort: true, storeDir: "${params.OutputDir}")
+
         }
 
 
