@@ -120,7 +120,6 @@ if (params.phenotype_filter) {
     .replaceAll(/\/.*/, '') }
     .unique()
     .flatten()
-    .view()
 }
    
 if (params.gene_filter) {
@@ -135,7 +134,6 @@ if (params.gene_filter) {
     .replaceAll(/\/.*/, '') }
     .unique()
     .flatten()
-    .view()
 }
 
 
