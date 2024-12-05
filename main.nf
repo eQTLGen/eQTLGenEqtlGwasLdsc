@@ -55,7 +55,7 @@ if (params.help){
 params.OutputDir = 'results'
 params.i2_thresh = 100
 params.gene_filter_ch = null
-params.phenotype_filter = 'data/help_phenotypes.txt'
+params.phenotype_filter = null
 params.remove_eqtl = 'no'
 params.remove_hla = 'no'
 params.window = 1000000
