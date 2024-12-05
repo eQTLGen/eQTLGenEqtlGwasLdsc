@@ -52,13 +52,14 @@ ZtoP <- function(Z, largeZ = FALSE, log10P = TRUE){
 }
 
 # HapMap3 SNP list
-
 snplist <- fread(args$snplist, header = FALSE)
 
 message("eQTL file loading...")
 eqtl <- open_dataset(args$eqtl_folder) %>%
   filter(phenotype %in% args$gene & i_squared <= args$i2_thresh) %>% collect() %>% as.data.table()
 message("eQTL file loading...done!")
+
+if(nrow(eqtl) == 0){error("No eQTL gene available!")}
 
 custom_schema <- schema(
   variant_index = int64(),
@@ -78,8 +79,9 @@ message("SNP reference loading...done!")
 message("eQTL and ref merging...")
 eqtl <- merge(eqtl, snpref, by = "variant_index")
 message("eQTL and ref merging...done!")
+message(paste(nrow(eqtl), "rows in data"))
 
-eqtl$p <- ZtoP(eqtl$beta / eqtl$standard_error)
+eqtl[, p := ZtoP(beta / standard_error)]
 
 colnames(eqtl)[9] <- "chr"
 
@@ -109,7 +111,7 @@ eqtl[, start := bp]
 eqtl[, end := bp]
 setkey(eqtl, chr, start, end)
 setkey(lead_variants, chr, start, end)
-overlap_results <- foverlaps(eqtl, lead_variants, nomatch = 0)
+overlap_results <- foverlaps(eqtl, lead_variants, nomatch = 0L)
 eqtl <- eqtl[!variant_index %in% overlap_results$variant_index]
 
 message(paste(nrow(eqtl), "variants in data after removal of eQTLs."))
