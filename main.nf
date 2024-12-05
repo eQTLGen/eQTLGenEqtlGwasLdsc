@@ -40,6 +40,7 @@ Optional arguments:
 --OutputDir                 Output directory. Defaults to "results".
 --i2_thresh                 Heterogeneity threshold. Defaults to 100 (<=100%).
 --gene_filter               File to filter the genes included to the analysis. File with ENSG IDs, no header. Defaults that no filtering done.
+--phenotype_filter          File to filter the phenotypes included to the analysis. File with phenotype IDs, no header. Defaults that no filtering done.
 
 """.stripIndent()
 
@@ -53,7 +54,8 @@ if (params.help){
 // Default parameters
 params.OutputDir = 'results'
 params.i2_thresh = 100
-params.gene_filter = 'data/help_input.txt'
+params.gene_filter_ch = null
+params.phenotype_filter = 'data/help_phenotypes.txt'
 params.remove_eqtl = 'no'
 params.remove_hla = 'no'
 params.window = 1000000
@@ -61,7 +63,7 @@ params.pthresh = 5e-8
 
 //Show parameter values
 log.info """=======================================================
-eQTLGen eQTL-GWAS colocalisation pipeline v${workflow.manifest.version}"
+eQTLGen eQTL-GWAS genetic correlation pipeline v${workflow.manifest.version}"
 ======================================================="""
 def summary = [:]
 summary['Pipeline Version']                         = workflow.manifest.version
@@ -83,11 +85,12 @@ summary['Allele info file']                         = params.allele_info
 summary['HapMap3 SNP list file']                    = params.snplist
 summary['I2 threshold']                             = params.i2_thresh
 summary['Gene filter']                              = params.gene_filter
+summary['Phenotype filter']                         = params.phenotype_filter
 summary['Remove eQTL']                              = params.remove_eqtl
 summary['Remove HLA']                               = params.remove_hla
 summary['eQTL window']                              = params.window
 summary['P threshold']                              = params.pthresh
-summary['Gene filter']                              = params.gene_filter
+
 
 // import modules
 include { PREPAREGWAS; MUNGEGWAS; LDSC; COLLECTGWAS; PREPAREEQTL; PrepareGwas; MungeGwas; PrepareEqtl; Ldsc; CollectGwas } from './modules/EqtlGwasLdsc.nf'
@@ -104,19 +107,39 @@ allele_ch = Channel.fromPath(params.allele_info).ifEmpty { exit 1, "eQTLGen refe
 snplist_ch = Channel.fromPath(params.snplist).ifEmpty { exit 1, "SNP list not found!" }
 ldsc_folder_ch = Channel.fromPath(params.ldsc_folder).ifEmpty { exit 1, "LDSC scripts folder not found!" }
 ldsc_ref_ch = Channel.fromPath(params.ldsc_ref).ifEmpty { exit 1, "LDSC reference folder not found!" }
-filter_ch = Channel.fromPath(params.gene_filter)
 
-// Get phenotype names
-gwas_id_ch = Channel
+if (params.phenotype_filter) {
+    gwas_ids = Channel
+    .fromPath(params.phenotype_filter)
+    .splitCsv(header: false)
+    } else {
+    gwas_ids = Channel
     .fromPath("${params.gwas_files}/gwas_id*/*")
-    .map { path -> path.toString().replaceAll(/.*gwas_id=/, '').replaceAll(/\/.*/, '') }.unique()
+    .map { path -> path.toString()
+    .replaceAll(/.*gwas_id=/, '')
+    .replaceAll(/\/.*/, '') }
+    .unique()
+    .flatten()
+    .view()
+}
+   
+if (params.gene_filter) {
+    gene_ids = Channel
+    .fromPath(params.gene_filter)
+    .splitCsv(header: false)
+    } else {
+    gene_ids = Channel
+    .fromPath("${params.eqtl_files}/phenotype_id*/*")
+    .map { path -> path.toString()
+    .replaceAll(/.*phenotype_id=/, '')
+    .replaceAll(/\/.*/, '') }
+    .unique()
+    .flatten()
+    .view()
+}
 
-// Get gene names
-gene_id_ch = Channel
-    .fromPath("${params.eqtl_files}/phenotype*/*")
-    .map { path -> path.toString().replaceAll(/.*phenotype=/, '').replaceAll(/\/.*/, '') }.unique()
 
-gwas_input_ch = gwas_ch.combine(gwas_manifest_ch).combine(allele_ch).combine(snplist_ch).combine(ldsc_folder_ch).combine(ldsc_ref_ch).combine(gwas_id_ch)
+gwas_input_ch = gwas_ch.combine(gwas_manifest_ch).combine(allele_ch).combine(snplist_ch).combine(ldsc_folder_ch).combine(ldsc_ref_ch).combine(gwas_ids)
 
 i2_thresh = Channel.value(params.i2_thresh)
 rm_eqtl = Channel.value(params.remove_eqtl)
@@ -131,7 +154,7 @@ workflow {
         collectgwas_input_ch = MUNGEGWAS.out.map { it[0] }.collect()
         COLLECTGWAS(collectgwas_input_ch)
 
-        prepareeqtl_input_ch = eqtl_ch.combine(gene_id_ch).combine(allele_ch).combine(snplist_ch).combine(i2_thresh)
+        prepareeqtl_input_ch = eqtl_ch.combine(gene_ids).combine(allele_ch).combine(snplist_ch).combine(i2_thresh)
 
         PREPAREEQTL(prepareeqtl_input_ch.combine(rm_eqtl).combine(window).combine(pthresh).combine(rm_hla))
         LDSC(PREPAREEQTL.out.combine(COLLECTGWAS.out).combine(ldsc_folder_ch).combine(ldsc_ref_ch))

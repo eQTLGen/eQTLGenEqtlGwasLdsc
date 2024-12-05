@@ -112,9 +112,9 @@ process PrepareEqtl {
 
 
 process Ldsc {
-
+    scratch true
     container 'manninglab/ldsc'
-
+    
     tag "$gene"
 
     input:

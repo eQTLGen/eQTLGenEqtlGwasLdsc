@@ -77,7 +77,6 @@ message("SNP reference loading...done!")
 
 message("eQTL and ref merging...")
 eqtl <- merge(eqtl, snpref, by = "variant_index")
-#eqtl <- eqtl %>% inner_join(snpref, by = "variant_index") %>% collect() %>% as.data.table()
 message("eQTL and ref merging...done!")
 
 eqtl$p <- ZtoP(eqtl$beta / eqtl$standard_error)
